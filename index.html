@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: azure;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 800px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        .notification-icon {
+            position: fixed;
+            top: 5px;
+            right: 22px;
+            cursor: pointer;
+            font-size: 30px;
+            color: red;
+            background-color: dodgerblue;
+            border-radius: 50%;
+            padding: 3px 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid black;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px 0 0;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        #removeAllButton {
+            background-color: #dc3545;
+        }
+
+        #showAllButton {
+            background-color: dodgerblue;
+        }
+
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: red;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: blue;
+        }
+
+        #transactionHistory {
+            margin-top: 30px;
+            display: none;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 5px;
+            background-color: white;
+            overflow-x: auto;
+        }
+
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            width: 100%;
+        }
+
+        table {
+            min-width: 1000px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+            word-break: break-word;
+        }
+
+        th {
+            background-color: darkslategray;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .file-link {
+            color: blue;
+            text-decoration: none;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
+        }
+
+        .new-row {
+            background-color: #fffab3 !important;
+        }
+
+        .rejected {
+            color: red !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="notification-icon" id="notificationIcon">🔔<span id="badge" class="badge"
+                style="display:none;">0</span></div>
+
+        <h1 style="color: blue;"><b><u>Gish Abay's children: Ikub payment form</u></b></h1>
+
+        <form id="transactionForm">
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="fatherName">Father's Name:</label>
+                <input type="text" id="fatherName" required>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" required>
+            </div>
+            <div class="form-group">
+                <label for="fileUpload" style="color: #007bff;">Upload any file (optional):</label>
+                <input type="file" id="fileUpload">
+            </div>
+            <button type="submit">Submit now</button>
+        </form>
+
+        <div class="button-group">
+            <button id="showAllButton">Show All</button>
+            <button id="removeAllButton">Remove All</button>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+        <div id="transactionHistory"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB40kuDcIEGGBKFmMItyqfC34HyBkvCBJ8",
+            authDomain: "payment-form-data.firebaseapp.com",
+            projectId: "payment-form-data",
+            storageBucket: "payment-form-data.appspot.com",
+            messagingSenderId: "1042462449848",
+            appId: "1:1042462449848:web:d6e60338d36c2eea6a544d"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const adminPassword = "MELIS";
+
+        const badge = document.getElementById("badge");
+        const notificationIcon = document.getElementById("notificationIcon");
+
+        loadNotificationCount();
+
+        document.getElementById("transactionForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const name = document.getElementById("name").value.trim();
+            const fatherName = document.getElementById("fatherName").value.trim();
+            const amount = parseFloat(document.getElementById("amount").value);
+            const file = document.getElementById("fileUpload").files[0];
+
+            if (!name || !fatherName || isNaN(amount) || amount <= 0) {
+                showStatusMessage("Please fill in all required fields correctly!", "error");
+                return;
+            }
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    saveTransaction(name, fatherName, amount, event.target.result, file.name);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                saveTransaction(name, fatherName, amount, "", "");
+            }
+
+            this.reset();
+            showStatusMessage("Transaction submitted successfully!", "success");
+        });
+
+        function saveTransaction(name, fatherName, amount, fileData, fileName) {
+            const transactionData = {
+                name,
+                fatherName,
+                amount,
+                date: firebase.firestore.Timestamp.now(),
+                fileData,
+                fileName,
+                seen: false,
+                approved: false
+            };
+
+            db.collection("transactions").add(transactionData).then(() => {
+                incrementNotificationCount();
+            }).catch(error => {
+                console.error("Error saving to Firestore:", error);
+                showStatusMessage("Failed to submit transaction.", "error");
+            });
+        }
+
+        function incrementNotificationCount() {
+            const docRef = db.collection("meta").doc("notificationCounter");
+            db.runTransaction(async (t) => {
+                const doc = await t.get(docRef);
+                const count = doc.exists ? doc.data().count : 0;
+                t.set(docRef, { count: count + 1 });
+            }).then(() => loadNotificationCount());
+        }
+
+        function loadNotificationCount() {
+            db.collection("meta").doc("notificationCounter").get().then(doc => {
+                const count = doc.exists ? doc.data().count : 0;
+                badge.textContent = count;
+                badge.style.display = count > 0 ? "inline-block" : "none";
+            });
+        }
+
+        notificationIcon.addEventListener("click", function () {
+            const password = prompt("Enter admin password to view new transactions:");
+            if (password === adminPassword) {
+                displayTransactions(true);
+                db.collection("meta").doc("notificationCounter").set({ count: 0 }).then(() => loadNotificationCount());
+            } else {
+                showStatusMessage("Incorrect password!", "error");
+            }
+        });
+
+        function displayTransactions(showNew = false) {
+            db.collection("transactions").orderBy("date", "asc").get().then(snapshot => {
+                const transactions = [];
+                const docIds = [];
+
+                snapshot.forEach(doc => {
+                    transactions.push(doc.data());
+                    docIds.push(doc.id);
+                });
+
+                const history = document.getElementById("transactionHistory");
+                history.innerHTML = "";
+
+                if (!transactions.length) {
+                    history.innerHTML = "<p>No transactions found.</p>";
+                    history.style.display = "block";
+                    return;
+                }
+
+                const wrapper = document.createElement("div");
+                wrapper.className = "table-container";
+
+                const table = document.createElement("table");
+                const tbodyContent = transactions.map((t, i) => {
+                    const rowClass = t.seen === false && showNew ? "new-row" : "";
+                    const textColor = t.approved === false ? "rejected" : "";
+                    const fileLink = t.fileData ?
+                        `<a class="file-link" href="${t.fileData}" target="_blank">📄 View</a> 
+                        <a class="file-link" href="${t.fileData}" download="${t.fileName}">Download</a>`
+                        : "No file";
+                    return `        
+                    <tr id="row-${docIds[i]}" class="${rowClass} ${textColor}">
+                        <td>${i + 1}</td>
+                        <td>${t.name}</td>
+                        <td>${t.fatherName}</td>
+                        <td>${t.amount}</td>
+                        <td>${calculateRunningTotal(transactions, i)}</td>
+                        <td>${fileLink}</td>
+                        <td>${formatDate(t.date)}</td>
+                        <td>
+                            <button onclick="checkTransaction('${docIds[i]}', true)">Yes</button>
+                            <button onclick="checkTransaction('${docIds[i]}', false)">No</button>
+                        </td>
+                    </tr>`;
+                }).join("");
+
+                table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Name</th>
+                        <th>Father's Name</th>
+                        <th>Amount</th>
+                        <th>Total</th>
+                        <th>File</th>
+                        <th>Date</th>
+                        <th>Check</th>
+                    </tr>
+                </thead>
+                <tbody>${tbodyContent}</tbody>`;
+
+                wrapper.appendChild(table);
+                history.appendChild(wrapper);
+                history.style.display = "block";
+
+                if (showNew) {
+                    snapshot.docs.forEach(doc => {
+                        if (doc.data().seen === false) {
+                            db.collection("transactions").doc(doc.id).update({ seen: true });
+                        }
+                    });
+                }
+            });
+        }
+
+        function checkTransaction(docId, isAccepted) {
+            const password = prompt("Enter admin password:");
+            if (password !== adminPassword) {
+                showStatusMessage("Incorrect password!", "error");
+                return;
+            }
+
+            if (isAccepted) {
+                db.collection("transactions").doc(docId).update({ approved: true }).then(() => displayTransactions(true));
+            } else {
+                db.collection("transactions").doc(docId).delete().then(() => displayTransactions(true));
+            }
+        }
+
+        document.getElementById("showAllButton").addEventListener("click", () => {
+            displayTransactions(false);
+            showStatusMessage("Showing all transactions", "success");
+        });
+
+        document.getElementById("removeAllButton").addEventListener("click", () => {
+            const password = prompt("Enter admin password:");
+            if (password === adminPassword) {
+                showStatusMessage("To delete data, go to the Firebase console directly", "success");
+            } else {
+                showStatusMessage("Incorrect admin password!", "error");
+            }
+        });
+
+        function formatDate(timestamp) {
+            const date = timestamp.toDate();
+            return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+        }
+
+        function calculateRunningTotal(transactions, currentIndex) {
+            if (currentIndex === transactions.length - 1) {
+                const total = transactions.reduce((acc, t) => acc + t.amount, 0);
+                return total.toFixed(2);
+            }
+            return "0.00";
+        }
+
+        function showStatusMessage(message, type) {
+            const statusMessage = document.getElementById("statusMessage");
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            statusMessage.style.display = "block";
+            setTimeout(() => {
+                statusMessage.style.display = "none";
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>
